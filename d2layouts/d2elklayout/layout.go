@@ -110,14 +110,35 @@ type ConfigurableOpts struct {
 	Padding         string `json:"elk.padding,omitempty"`
 	EdgeNodeSpacing int    `json:"spacing.edgeNodeBetweenLayers,omitempty"`
 	SelfLoopSpacing int    `json:"elk.spacing.nodeSelfLoop"`
+
+	// [FORK] Previously hardcoded options now configurable
+	Thoroughness                 int    `json:"elk.layered.thoroughness,omitempty"`
+	EdgeEdgeBetweenLayersSpacing int    `json:"elk.layered.spacing.edgeEdgeBetweenLayers,omitempty"`
+	EdgeNodeAbsoluteSpacing      int    `json:"elk.spacing.edgeNode,omitempty"`
+	FixedAlignment               string `json:"elk.layered.nodePlacement.bk.fixedAlignment,omitempty"`
+	ConsiderModelOrder           string `json:"elk.layered.considerModelOrder.strategy,omitempty"`
+	CycleBreakingStrategy        string `json:"elk.layered.cycleBreaking.strategy,omitempty"`
+	CrossingMinimizationStrategy string `json:"elk.layered.crossingMinimization.strategy,omitempty"`
+	NodePlacementStrategy        string `json:"elk.layered.nodePlacement.strategy,omitempty"`
+	EdgeRoutingStrategy          string `json:"elk.layered.edgeRouting,omitempty"`
 }
 
 var DefaultOpts = ConfigurableOpts{
 	Algorithm:       "layered",
-	NodeSpacing:     70.0,
+	NodeSpacing:     70,
 	Padding:         "[top=50,left=50,bottom=50,right=50]",
-	EdgeNodeSpacing: 40.0,
-	SelfLoopSpacing: 50.0,
+	EdgeNodeSpacing: 40,
+	SelfLoopSpacing: 50,
+	// [FORK] Defaults matching previous hardcoded values
+	Thoroughness:                 8,
+	EdgeEdgeBetweenLayersSpacing: 50,
+	EdgeNodeAbsoluteSpacing:      40,
+	FixedAlignment:               "BALANCED",
+	ConsiderModelOrder:           "NODES_AND_EDGES",
+	CycleBreakingStrategy:        "GREEDY_MODEL_ORDER",
+	CrossingMinimizationStrategy: "",
+	NodePlacementStrategy:        "",
+	EdgeRoutingStrategy:          "",
 }
 
 var port_spacing = 40.
@@ -143,6 +164,9 @@ type elkOpts struct {
 
 	PortSide        PortSide `json:"elk.port.side,omitempty"`
 	PortConstraints string   `json:"elk.portConstraints,omitempty"`
+
+	// [FORK] Interactive mode for edge-only routing with fixed node positions
+	InteractiveLayout bool `json:"elk.interactiveLayout,omitempty"`
 
 	ConfigurableOpts
 }
@@ -174,23 +198,27 @@ func Layout(ctx context.Context, g *d2graph.Graph, opts *ConfigurableOpts) (err 
 		}
 	}
 
+	// [FORK] Use configurable opts instead of hardcoded values
 	elkGraph := &ELKGraph{
 		ID: "",
 		LayoutOptions: &elkOpts{
-			Thoroughness:                 8,
-			EdgeEdgeBetweenLayersSpacing: 50,
-			EdgeNode:                     edge_node_spacing,
+			Thoroughness:                 opts.Thoroughness,
+			EdgeEdgeBetweenLayersSpacing: opts.EdgeEdgeBetweenLayersSpacing,
+			EdgeNode:                     opts.EdgeNodeAbsoluteSpacing,
 			HierarchyHandling:            "INCLUDE_CHILDREN",
-			FixedAlignment:               "BALANCED",
-			ConsiderModelOrder:           "NODES_AND_EDGES",
-			CycleBreakingStrategy:        "GREEDY_MODEL_ORDER",
+			FixedAlignment:               opts.FixedAlignment,
+			ConsiderModelOrder:           opts.ConsiderModelOrder,
+			CycleBreakingStrategy:        opts.CycleBreakingStrategy,
 			NodeSizeConstraints:          "MINIMUM_SIZE",
 			ContentAlignment:             "H_CENTER V_CENTER",
 			ConfigurableOpts: ConfigurableOpts{
-				Algorithm:       opts.Algorithm,
-				NodeSpacing:     opts.NodeSpacing,
-				EdgeNodeSpacing: opts.EdgeNodeSpacing,
-				SelfLoopSpacing: opts.SelfLoopSpacing,
+				Algorithm:                    opts.Algorithm,
+				NodeSpacing:                  opts.NodeSpacing,
+				EdgeNodeSpacing:              opts.EdgeNodeSpacing,
+				SelfLoopSpacing:              opts.SelfLoopSpacing,
+				CrossingMinimizationStrategy: opts.CrossingMinimizationStrategy,
+				NodePlacementStrategy:        opts.NodePlacementStrategy,
+				EdgeRoutingStrategy:          opts.EdgeRoutingStrategy,
 			},
 		},
 	}
@@ -272,22 +300,26 @@ func Layout(ctx context.Context, g *d2graph.Graph, opts *ConfigurableOpts) (err 
 		}
 
 		if len(obj.ChildrenArray) > 0 {
+			// [FORK] Use configurable opts for child nodes too
 			n.LayoutOptions = &elkOpts{
 				ForceNodeModelOrder:          true,
-				Thoroughness:                 8,
-				EdgeEdgeBetweenLayersSpacing: 50,
+				Thoroughness:                 opts.Thoroughness,
+				EdgeEdgeBetweenLayersSpacing: opts.EdgeEdgeBetweenLayersSpacing,
 				HierarchyHandling:            "INCLUDE_CHILDREN",
-				FixedAlignment:               "BALANCED",
-				EdgeNode:                     edge_node_spacing,
-				ConsiderModelOrder:           "NODES_AND_EDGES",
-				CycleBreakingStrategy:        "GREEDY_MODEL_ORDER",
+				FixedAlignment:               opts.FixedAlignment,
+				EdgeNode:                     opts.EdgeNodeAbsoluteSpacing,
+				ConsiderModelOrder:           opts.ConsiderModelOrder,
+				CycleBreakingStrategy:        opts.CycleBreakingStrategy,
 				NodeSizeConstraints:          "MINIMUM_SIZE",
 				ContentAlignment:             "H_CENTER V_CENTER",
 				ConfigurableOpts: ConfigurableOpts{
-					NodeSpacing:     opts.NodeSpacing,
-					EdgeNodeSpacing: opts.EdgeNodeSpacing,
-					SelfLoopSpacing: opts.SelfLoopSpacing,
-					Padding:         opts.Padding,
+					NodeSpacing:                  opts.NodeSpacing,
+					EdgeNodeSpacing:              opts.EdgeNodeSpacing,
+					SelfLoopSpacing:              opts.SelfLoopSpacing,
+					Padding:                      opts.Padding,
+					CrossingMinimizationStrategy: opts.CrossingMinimizationStrategy,
+					NodePlacementStrategy:        opts.NodePlacementStrategy,
+					EdgeRoutingStrategy:          opts.EdgeRoutingStrategy,
 				},
 			}
 			if n.LayoutOptions.ConfigurableOpts.SelfLoopSpacing == DefaultOpts.SelfLoopSpacing {

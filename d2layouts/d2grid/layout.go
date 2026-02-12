@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strconv"
 
 	"oss.terrastruct.com/d2/d2graph"
 	"oss.terrastruct.com/d2/d2target"
@@ -16,14 +17,27 @@ import (
 const (
 	CONTAINER_PADDING = 60
 	DEFAULT_GAP       = 40
+	// [FORK] Per-edge gap increment when routing is active.
+	// Each additional edge sharing a corridor needs this much extra space.
+	EDGE_ROUTING_GAP_PER_EDGE = 16
+	// [FORK] Minimum gap when edges exist, even for a single edge.
+	EDGE_ROUTING_MIN_GAP = 64
 )
 
 // Layout runs the grid layout on containers with rows/columns
 // Note: children are not allowed edges or descendants
 // 1. Run grid layout on the graph root
 // 2. Set the resulting dimensions to the graph root
-func Layout(ctx context.Context, g *d2graph.Graph) error {
+// [FORK] Added edgeRouter parameter for proper edge routing in grids
+func Layout(ctx context.Context, g *d2graph.Graph, edgeRouter d2graph.RouteEdges) error {
 	obj := g.Root
+
+	// [FORK] When edge routing is available, increase grid gap to provide
+	// routing corridors. The extra space is proportional to the maximum
+	// number of edges that share a single corridor (row/column gap).
+	if edgeRouter != nil {
+		adjustGridGapForEdges(g, obj)
+	}
 
 	gd, err := layoutGrid(g, obj)
 	if err != nil {
@@ -142,7 +156,8 @@ func Layout(ctx context.Context, g *d2graph.Graph) error {
 		}
 	}
 
-	// simple straight line edge routing between grid objects
+	// [FORK] Edge routing between grid objects — use edgeRouter if available
+	var gridChildEdges []*d2graph.Edge
 	for _, e := range g.Edges {
 		if !e.Src.Parent.IsDescendantOf(obj) && !e.Dst.Parent.IsDescendantOf(obj) {
 			continue
@@ -153,11 +168,24 @@ func Layout(ctx context.Context, g *d2graph.Graph) error {
 		if e.Src.Parent != obj || e.Dst.Parent != obj {
 			continue
 		}
-		// if edge is grid child, use simple routing
-		e.Route = []*geo.Point{e.Src.Center(), e.Dst.Center()}
-		e.TraceToShape(e.Route, 0, 1)
-		if e.Label.Value != "" {
-			e.LabelPosition = go2.Pointer(label.InsideMiddleCenter.String())
+		gridChildEdges = append(gridChildEdges, e)
+	}
+	if len(gridChildEdges) > 0 {
+		routed := false
+		if edgeRouter != nil {
+			if err := edgeRouter(ctx, g, gridChildEdges); err == nil {
+				routed = true
+			}
+		}
+		if !routed {
+			// Fallback: simple straight-line routing (original behavior)
+			for _, e := range gridChildEdges {
+				e.Route = []*geo.Point{e.Src.Center(), e.Dst.Center()}
+				e.TraceToShape(e.Route, 0, 1)
+				if e.Label.Value != "" {
+					e.LabelPosition = go2.Pointer(label.InsideMiddleCenter.String())
+				}
+			}
 		}
 	}
 
@@ -1002,4 +1030,42 @@ func (gd *gridDiagram) sizeForOutsideLabels() (revert func()) {
 			}
 		}
 	}
+}
+
+// [FORK] adjustGridGapForEdges increases the grid gap when edge routing is active.
+// The gap is computed based on the maximum number of edges that cross any single
+// row or column boundary, ensuring sufficient corridor width for parallel edges.
+func adjustGridGapForEdges(g *d2graph.Graph, obj *d2graph.Object) {
+	// Count edges between grid children.
+	var edgeCount int
+	for _, e := range g.Edges {
+		if e.Src.Parent == obj && e.Dst.Parent == obj && e.Src != e.Dst {
+			edgeCount++
+		}
+	}
+	if edgeCount == 0 {
+		return
+	}
+
+	// Don't override explicitly set gaps.
+	if obj.GridGap != nil || obj.HorizontalGap != nil || obj.VerticalGap != nil {
+		return
+	}
+
+	// Estimate max corridor density: in worst case, all edges might cross
+	// the same corridor. Use sqrt(edgeCount) as a practical estimate.
+	maxDensity := int(math.Ceil(math.Sqrt(float64(edgeCount))))
+	if maxDensity < 1 {
+		maxDensity = 1
+	}
+
+	// Compute required gap: base + per-edge increment.
+	requiredGap := EDGE_ROUTING_MIN_GAP + maxDensity*EDGE_ROUTING_GAP_PER_EDGE
+	if requiredGap <= DEFAULT_GAP {
+		return
+	}
+
+	// Set the gap values on the object so layoutGrid picks them up.
+	gapStr := strconv.Itoa(requiredGap)
+	obj.GridGap = &d2graph.Scalar{Value: gapStr}
 }

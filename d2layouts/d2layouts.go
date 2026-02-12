@@ -250,7 +250,8 @@ func LayoutNested(ctx context.Context, g *d2graph.Graph, graphInfo GraphInfo, co
 		switch graphInfo.DiagramType {
 		case GridDiagram:
 			log.Debug(ctx, "layout grid", slog.Any("rootlevel", g.RootLevel), slog.Any("shapes", g.PrintString()))
-			if err = d2grid.Layout(ctx, g); err != nil {
+			// [FORK] Pass edgeRouter for proper grid edge routing
+			if err = d2grid.Layout(ctx, g, edgeRouter); err != nil {
 				return err
 			}
 
