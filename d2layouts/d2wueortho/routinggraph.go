@@ -9,7 +9,7 @@
 // This ensures that any path through the routing graph produces an
 // orthogonal route that avoids all node boxes.
 
-package d2gridrouter
+package d2wueortho
 
 import (
 	"math"

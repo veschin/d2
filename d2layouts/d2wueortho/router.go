@@ -1,6 +1,7 @@
-// [FORK] Orthogonal grid edge router.
-// Implements stages 2-5 of the Hegemann & Wolff (2023) pipeline for
-// routing edges orthogonally when node positions are fixed (e.g., grid layout).
+// [FORK] wueortho — orthogonal graph drawing engine.
+// Implements the Hegemann & Wolff (2023) pipeline for orthogonal graph drawing.
+// Currently: stages 2-5 (edge routing with fixed node positions).
+// Planned: stages 1-1b (force-directed layout + overlap removal) for standalone mode.
 //
 // Pipeline:
 //   Stage 2: Port assignment — determine where edges exit/enter cells
@@ -10,7 +11,7 @@
 //
 // Reference: arXiv:2309.01671, github.com/WueGD/wueortho
 
-package d2gridrouter
+package d2wueortho
 
 import (
 	"context"
@@ -87,9 +88,12 @@ func RouteEdges(ctx context.Context, g *d2graph.Graph, edges []*d2graph.Edge) er
 	// Stage 3c: Route each edge via modified Dijkstra.
 	routes := routeAllEdges(rg, ports, edges)
 
-	// Stages 4+5: Nudge parallel edges apart in shared corridors.
-	// Edges sharing a corridor are evenly distributed across its width.
-	nudgeRoutes(routes, channels, boxes)
+	// Stage 4: Order edges on shared segments to minimize crossings.
+	ordering := orderEdgesOnSharedSegments(routes, rg)
+
+	// Stage 5: Nudge parallel edges apart in shared corridors.
+	// Edges sharing a corridor are distributed using Stage 4 ordering.
+	nudgeRoutes(routes, channels, boxes, ordering)
 
 	// Apply routes to edges.
 	// Port positions are already on shape boundaries, so we use them directly

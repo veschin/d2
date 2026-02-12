@@ -48,6 +48,9 @@ type Config struct {
 	Pad                *int64          `json:"pad"`
 	Center             *bool           `json:"center"`
 	LayoutEngine       *string         `json:"layoutEngine"`
+	// [FORK] GridRouting controls whether grid diagrams get orthogonal edge routing.
+	// Default is true (enabled). Set to false to disable and use straight-line routing.
+	GridRouting        *bool           `json:"gridRouting,omitempty"`
 	ThemeOverrides     *ThemeOverrides `json:"themeOverrides,omitempty"`
 	DarkThemeOverrides *ThemeOverrides `json:"darkThemeOverrides,omitempty"`
 	// Data is a data structure for holding user-defined data

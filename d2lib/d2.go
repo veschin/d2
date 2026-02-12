@@ -32,6 +32,10 @@ type CompileOptions struct {
 
 	Layout *string
 
+	// [FORK] GridRouting controls whether grid diagrams get orthogonal edge routing.
+	// nil or *true = enabled (default), *false = disabled (straight-line routing).
+	GridRouting *bool
+
 	// FontFamily controls the font family used for all texts that are not the following:
 	// - code
 	// - latex
@@ -165,6 +169,10 @@ func getLayout(opts *CompileOptions) (d2graph.LayoutGraph, error) {
 }
 
 func getEdgeRouter(opts *CompileOptions) (d2graph.RouteEdges, error) {
+	// [FORK] If grid-routing is explicitly disabled, use straight-line routing.
+	if opts.GridRouting != nil && !*opts.GridRouting {
+		return d2layouts.DefaultRouter, nil
+	}
 	if opts.Layout != nil && opts.RouterResolver != nil {
 		router, err := opts.RouterResolver(*opts.Layout)
 		if err != nil {
@@ -186,6 +194,12 @@ func applyConfigs(config *d2target.Config, compileOpts *CompileOptions, renderOp
 
 	if compileOpts.Layout == nil {
 		compileOpts.Layout = config.LayoutEngine
+	}
+
+	// [FORK] Apply grid-routing config. If explicitly set to false,
+	// disable orthogonal edge routing by clearing the RouterResolver.
+	if config.GridRouting != nil && !*config.GridRouting {
+		compileOpts.GridRouting = config.GridRouting
 	}
 
 	if renderOpts.ThemeID == nil {

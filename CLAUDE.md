@@ -21,6 +21,34 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
+## OpenSpec CLI Commands
+
+```sh
+openspec list                              # List active changes
+openspec show <change>                     # Show change details (proposal)
+openspec change new <name>                 # Create new change
+openspec validate <change>                 # Validate change artifacts
+openspec archive -y <change>               # Archive completed change (auto-confirm)
+openspec archive --skip-specs <change>     # Archive without updating specs
+openspec spec list                         # List all specs
+openspec spec show <spec>                  # Show a spec
+```
+
+Slash-command shortcuts (Claude Code skills):
+
+| Command              | What it does                                      |
+|----------------------|---------------------------------------------------|
+| `/opsx:new`          | Start a new change (guided artifact creation)      |
+| `/opsx:continue`     | Create next artifact for a change                  |
+| `/opsx:ff`           | Fast-forward: create all artifacts at once          |
+| `/opsx:apply`        | Implement tasks from a change                      |
+| `/opsx:verify`       | Verify implementation matches change artifacts     |
+| `/opsx:archive`      | Archive a completed change                         |
+| `/opsx:bulk-archive` | Archive multiple changes at once                   |
+| `/opsx:sync`         | Sync delta specs to main specs                     |
+| `/opsx:explore`      | Think through ideas before/during a change         |
+| `/opsx:onboard`      | Guided walkthrough of the full workflow             |
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with
@@ -434,7 +462,7 @@ follow these rules:
 
 ### Fork Packages
 
-- `d2layouts/d2gridrouter/` — Orthogonal grid edge router (Hegemann & Wolff 2023)
+- `d2layouts/d2wueortho/` — Orthogonal graph drawing engine (Hegemann & Wolff 2023)
 
 ## Known Pitfalls
 
@@ -446,7 +474,7 @@ Problems encountered during fork development that are likely to recur.
 **Root cause**: `edge.TraceToShape()` clips route endpoints to shape boundaries.
 When a port is already exactly on the boundary, TraceToShape produces a zero-length
 segment. The d2svg bezier renderer then divides by zero when computing curve normals.
-**Fix**: For edges with pre-computed port positions (e.g., from d2gridrouter), skip
+**Fix**: For edges with pre-computed port positions (e.g., from d2wueortho), skip
 TraceToShape entirely. Set `edge.Route` directly and let the SVG renderer handle
 arrowhead offsets via its own `arrowheadAdjustment()`.
 
@@ -483,6 +511,76 @@ node positions — it MUST rearrange nodes to satisfy layer constraints.
 **Lesson**: ELK is a node layout + edge routing engine, not a standalone edge router.
 For routing edges with pre-positioned nodes, use a dedicated algorithm (e.g.,
 channel-based routing from Hegemann & Wolff 2023).
+
+### Grid edge router: face selection determines visual quality
+
+**Context**: `d2layouts/d2wueortho/gridroute.go` — the L/Z-Router for standalone
+wueortho layout.
+
+**Core principle**: Face selection (which side of a shape an edge enters/exits)
+is the #1 factor in visual quality. Port positions, L-route orientation, and
+crossing detection are secondary. Get face selection right first.
+
+**Face selection architecture** (two-pass):
+- **Pass 1** (mandatory): Same-row → RIGHT/LEFT. Same-col → BOTTOM/TOP.
+  Strictly dominant diagonal (|dc|>|dr| or |dr|>|dc|) → dominant axis faces.
+- **Pass 2** (flex): Equal diagonals (|dc|==|dr|) use **independent per-endpoint
+  face selection**. Each endpoint picks the face with the lowest current load
+  among its two candidate faces (vertical and horizontal toward the peer).
+  This creates **mixed face pairs** (e.g., src exits BOTTOM, dst enters LEFT)
+  which push L-route bends to layout corners.
+- **Tiebreaker**: when loads are equal, prefer **vertical** faces (`<=` not `<`).
+  This matters because mandatory same-col edges already occupy vertical faces,
+  and the tiebreaker determines how remaining edges distribute. Vertical
+  preference naturally cascades: first flex edges take vertical, which increases
+  vertical load, causing later edges to pick horizontal.
+
+**L-route orientation must match srcFace direction**:
+- When srcFace is TOP/BOTTOM (vertical exit): try vertical-first L-route
+  (bend at `(src.X, dst.Y)`) before horizontal-first.
+- When srcFace is LEFT/RIGHT (horizontal exit): try horizontal-first L-route
+  (bend at `(dst.X, src.Y)`) before vertical-first.
+- Without this, L-routes bend in the wrong direction — creating bends in the
+  center of the layout instead of at the exterior.
+
+**Port alignment for straight edges**: When two nodes in the same column have a
+straight vertical edge, align both ports to the face with FEWER ports (it's
+centered). The face with MORE ports adjusts to match. NOT the other way around —
+aligning to the multi-port face pulls centered single-port faces off-center.
+
+**Debugging approach**: Don't make random changes to port spread formulas or face
+selection heuristics. Instead: (1) extract exact SVG coordinates with a Python
+script, (2) compute per-edge face assignments and port offsets from face center,
+(3) trace through the algorithm with actual numbers to understand WHY, (4) make
+a targeted fix. The user explicitly said: "ты понимаешь все цифры, обдумай их."
+
+**Known limitation**: Non-equal diagonals (|dc|≠|dr|) with large horizontal
+distance produce L-routes with long bridge segments through empty space (see
+task 4.16). This needs either extended mixed face selection or a route quality
+heuristic.
+
+### Grid edge router: SVG path structure
+
+D2's SVG renderer (`d2svg`) converts orthogonal routes (sequences of H/V points)
+into smooth SVG paths using `S` (smooth cubic Bezier) commands at bend points.
+When parsing SVG paths to analyze routes:
+- `M x y` = move to (start point)
+- `L x y` = line to (straight segment)
+- `S cx cy x y` = smooth curve (cx,cy is control point, x,y is endpoint)
+- A 3-point orthogonal L-route `[A, bend, B]` becomes `M A L near-bend S bend B`
+  — this appears as 4 SVG points but is logically 1 bend.
+- Edge labels have no group IDs in SVG. To identify which edge is which, match
+  start/end coordinates against known node positions.
+
+## Playwright / Browser Preview
+
+When using the Playwright MCP to view SVGs or HTML files:
+- `file://` protocol is BLOCKED. Never use `file:///path/to/file.svg`.
+- Instead, use the `/d2-diagrams` skill which renders via a local D2 server at
+  `localhost:3000`.
+- For ad-hoc file viewing, serve the directory first:
+  `python3 -m http.server 8765 --directory /path/to/dir` then navigate to
+  `http://localhost:8765/filename.svg`.
 
 ## Requires
 

@@ -2,7 +2,7 @@
 // Hegemann & Wolff, "A Simple Pipeline for Orthogonal Graph Drawing", GD 2023.
 // arXiv:2309.01671. Reference impl: github.com/WueGD/wueortho (Scala 3).
 
-package d2gridrouter
+package d2wueortho
 
 import (
 	"math"

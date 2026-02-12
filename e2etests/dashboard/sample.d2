@@ -1,0 +1,7 @@
+server -> db: query
+server -> cache: check
+cache -> db: miss
+client -> server: request
+client -> auth: login
+auth -> server: token
+auth -> db: verify

@@ -1547,6 +1547,13 @@ func compileConfig(ir *d2ir.Map) (*d2target.Config, error) {
 		config.Center = &val
 	}
 
+	// [FORK] Parse grid-routing config (default: true = orthogonal routing enabled).
+	f = configMap.GetField(d2ast.FlatUnquotedString("grid-routing"))
+	if f != nil {
+		val, _ := strconv.ParseBool(f.Primary().Value.ScalarString())
+		config.GridRouting = &val
+	}
+
 	f = configMap.GetField(d2ast.FlatUnquotedString("theme-overrides"))
 	if f != nil {
 		overrides, err := compileThemeOverrides(f.Map())

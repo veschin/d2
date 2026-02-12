@@ -44,6 +44,7 @@ var staticFS embed.FS
 
 type watcherOpts struct {
 	layout          *string
+	gridRouting     *bool // [FORK] orthogonal grid edge routing toggle
 	plugins         []d2plugin.Plugin
 	renderOpts      d2svg.RenderOpts
 	animateInterval int64
@@ -444,7 +445,7 @@ func (w *watcher) compileLoop(ctx context.Context) error {
 		if w.boardPath != "" {
 			boardPath = strings.Split(w.boardPath, string(os.PathSeparator))
 		}
-		svg, _, err := compile(ctx, w.ms, w.plugins, &fs, w.layout, w.renderOpts, w.fontFamily, w.monoFontFamily, w.animateInterval, w.inputPath, w.outputPath, boardPath, false, w.bundle, w.forceAppendix, w.pw.Browser, w.outputFormat, w.asciiMode)
+		svg, _, err := compile(ctx, w.ms, w.plugins, &fs, w.layout, w.gridRouting, w.renderOpts, w.fontFamily, w.monoFontFamily, w.animateInterval, w.inputPath, w.outputPath, boardPath, false, w.bundle, w.forceAppendix, w.pw.Browser, w.outputFormat, w.asciiMode)
 		w.boardpathMu.Unlock()
 		errs := ""
 		if err != nil {

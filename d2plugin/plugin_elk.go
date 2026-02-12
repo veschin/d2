@@ -9,7 +9,7 @@ import (
 
 	"oss.terrastruct.com/d2/d2graph"
 	"oss.terrastruct.com/d2/d2layouts/d2elklayout"
-	"oss.terrastruct.com/d2/d2layouts/d2gridrouter"
+	"oss.terrastruct.com/d2/d2layouts/d2wueortho"
 	"oss.terrastruct.com/util-go/xmain"
 )
 
@@ -174,11 +174,11 @@ func (p elkPlugin) Layout(ctx context.Context, g *d2graph.Graph) error {
 	return d2elklayout.Layout(ctx, g, p.opts)
 }
 
-// [FORK] RouteEdges implements RoutingPlugin for ELK-based edge routing
+// [FORK] RouteEdges implements RoutingPlugin for orthogonal edge routing
 // on pre-positioned graphs (e.g., after grid layout).
-// [FORK] RouteEdges uses the orthogonal grid router based on Hegemann & Wolff (2023).
+// Delegates to wueortho (Hegemann & Wolff 2023).
 func (p elkPlugin) RouteEdges(ctx context.Context, g *d2graph.Graph, edges []*d2graph.Edge) error {
-	return d2gridrouter.RouteEdges(ctx, g, edges)
+	return d2wueortho.RouteEdges(ctx, g, edges)
 }
 
 func (p elkPlugin) PostProcess(ctx context.Context, in []byte) ([]byte, error) {

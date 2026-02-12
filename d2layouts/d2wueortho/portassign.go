@@ -8,7 +8,7 @@
 // 4. Order ports on each side by circular order of neighbor directions.
 // 5. Distribute ports evenly along each side.
 
-package d2gridrouter
+package d2wueortho
 
 import (
 	"math"

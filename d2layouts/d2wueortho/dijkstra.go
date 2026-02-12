@@ -5,7 +5,7 @@
 // Lexicographic minimization: shortest path first, then fewest bends.
 // This ensures optimal orthogonal routes that avoid all obstacles.
 
-package d2gridrouter
+package d2wueortho
 
 import (
 	"container/heap"

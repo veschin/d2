@@ -1,6 +1,6 @@
 // [FORK] Unit tests for individual grid router stages:
 // port assignment, channels, routing graph, Dijkstra, nudging.
-package d2gridrouter
+package d2wueortho
 
 import (
 	"math"

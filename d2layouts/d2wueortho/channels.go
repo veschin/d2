@@ -8,7 +8,7 @@
 // For a grid layout, channels correspond to the gaps between rows,
 // gaps between columns, and the perimeter margins.
 
-package d2gridrouter
+package d2wueortho
 
 import (
 	"math"

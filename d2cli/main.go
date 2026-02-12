@@ -152,6 +152,12 @@ func Run(ctx context.Context, ms *xmain.State) (err error) {
 		return err
 	}
 
+	// [FORK] Grid routing flag: orthogonal edge routing for grid diagrams.
+	gridRoutingFlag, err := ms.Opts.Bool("D2_GRID_ROUTING", "grid-routing", "", true, "enable orthogonal edge routing for grid diagrams. Set to false to use straight-line routing.")
+	if err != nil {
+		return err
+	}
+
 	plugins, err := d2plugin.ListPlugins(ctx)
 	if err != nil {
 		return err
@@ -300,6 +306,12 @@ func Run(ctx context.Context, ms *xmain.State) (err error) {
 			centerFlag = nil
 		}
 	}
+	// [FORK] Grid routing flag: nil if not explicitly set by user.
+	if ms.Env.Getenv("D2_GRID_ROUTING") == "" {
+		if _, ok := flagSet["grid-routing"]; !ok {
+			gridRoutingFlag = nil
+		}
+	}
 
 	if *darkThemeFlag == -1 {
 		darkThemeFlag = nil // TODO this is a temporary solution: https://github.com/terrastruct/util-go/issues/7
@@ -363,6 +375,7 @@ func Run(ctx context.Context, ms *xmain.State) (err error) {
 		w, err := newWatcher(ctx, ms, watcherOpts{
 			plugins:         plugins,
 			layout:          layoutFlag,
+			gridRouting:     gridRoutingFlag, // [FORK]
 			renderOpts:      renderOpts,
 			animateInterval: animateInterval,
 			host:            *hostFlag,
@@ -412,7 +425,7 @@ func Run(ctx context.Context, ms *xmain.State) (err error) {
 		ms.Log.Debug.Printf("GIF export: animate-interval not specified, defaulting to 1000ms")
 	}
 
-	_, written, err := compile(ctx, ms, plugins, nil, layoutFlag, renderOpts, fontFamily, monoFontFamily, animateInterval, inputPath, outputPath, boardPath, noChildren, *bundleFlag, *forceAppendixFlag, pw.Browser, outputFormat, *asciiModeFlag)
+	_, written, err := compile(ctx, ms, plugins, nil, layoutFlag, gridRoutingFlag, renderOpts, fontFamily, monoFontFamily, animateInterval, inputPath, outputPath, boardPath, noChildren, *bundleFlag, *forceAppendixFlag, pw.Browser, outputFormat, *asciiModeFlag)
 	if err != nil {
 		if written {
 			return fmt.Errorf("failed to fully compile (partial render written) %s: %w", ms.HumanPath(inputPath), err)
@@ -487,7 +500,7 @@ func RouterResolver(ctx context.Context, ms *xmain.State, plugins []d2plugin.Plu
 	}
 }
 
-func compile(ctx context.Context, ms *xmain.State, plugins []d2plugin.Plugin, fs fs.FS, layout *string, renderOpts d2svg.RenderOpts, fontFamily *d2fonts.FontFamily, monoFontFamily *d2fonts.FontFamily, animateInterval int64, inputPath, outputPath string, boardPath []string, noChildren, bundle, forceAppendix bool, browser playwright.Browser, ext exportExtension, asciiMode string) (_ []byte, written bool, _ error) {
+func compile(ctx context.Context, ms *xmain.State, plugins []d2plugin.Plugin, fs fs.FS, layout *string, gridRouting *bool, renderOpts d2svg.RenderOpts, fontFamily *d2fonts.FontFamily, monoFontFamily *d2fonts.FontFamily, animateInterval int64, inputPath, outputPath string, boardPath []string, noChildren, bundle, forceAppendix bool, browser playwright.Browser, ext exportExtension, asciiMode string) (_ []byte, written bool, _ error) {
 	// Use ELK layout for ascii outputs when layout is dagre or unspecified
 	if ext == TXT {
 		if layout == nil || *layout == "dagre" {
@@ -520,6 +533,7 @@ func compile(ctx context.Context, ms *xmain.State, plugins []d2plugin.Plugin, fs
 		InputPath:      inputPath,
 		LayoutResolver: LayoutResolver(ctx, ms, plugins),
 		Layout:         layout,
+		GridRouting:    gridRouting, // [FORK] orthogonal grid edge routing toggle
 		RouterResolver: RouterResolver(ctx, ms, plugins),
 		FS:             fs,
 	}
